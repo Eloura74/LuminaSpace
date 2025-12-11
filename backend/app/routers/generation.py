@@ -138,32 +138,112 @@ async def inpaint_image(
 
         # Priorité 2: URL (si pas d'image valide encore)
         if ip_adapter_image is None and product_image_url:
-            print(f"📥 Downloading product image from URL: {product_image_url}")
-            try:
-                # Téléchargement via urllib avec User-Agent pour éviter 403/404 sur certains sites
-                req = urllib.request.Request(
-                    product_image_url, 
-                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-                )
-                with urllib.request.urlopen(req) as response:
-                    url_bytes = response.read()
-                    ip_adapter_image = Image.open(io.BytesIO(url_bytes)).convert("RGB")
-                    print("✅ Product image downloaded and opened")
-            except Exception as e:
-                print(f"❌ Error downloading product image: {e}")
+            print(f"📥 Processing product image URL: {product_image_url}")
+            
+            # FIX: Détection URL locale (localhost) pour éviter le deadlock
+            if "localhost" in product_image_url or "127.0.0.1" in product_image_url:
+                try:
+                    # Extraction du chemin relatif
+                    # Ex: http://localhost:8000/static/products/xyz.png -> static/products/xyz.png
+                    if "/static/" in product_image_url:
+                        relative_path = product_image_url.split("/static/")[1]
+                        local_path = os.path.join("static", relative_path)
+                        
+                        if os.path.exists(local_path):
+                            print(f"📂 Reading local file directly: {local_path}")
+                            ip_adapter_image = Image.open(local_path).convert("RGB")
+                            print("✅ Product image opened from local disk")
+                        else:
+                            print(f"❌ Local file not found: {local_path}")
+                except Exception as e:
+                    print(f"❌ Error reading local file: {e}")
+
+            # Si toujours pas chargé (URL externe ou échec local), on télécharge
+            if ip_adapter_image is None:
+                try:
+                    print(f"🌐 Downloading from external URL...")
+                    # Téléchargement via urllib avec User-Agent pour éviter 403/404 sur certains sites
+                    req = urllib.request.Request(
+                        product_image_url, 
+                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+                    )
+                    with urllib.request.urlopen(req) as response:
+                        url_bytes = response.read()
+                        ip_adapter_image = Image.open(io.BytesIO(url_bytes)).convert("RGB")
+                        print("✅ Product image downloaded and opened")
+                except Exception as e:
+                    print(f"❌ Error downloading product image: {e}")
 
         # Redimensionnement image produit
         if ip_adapter_image:
             ip_adapter_image.thumbnail((512, 512), Image.LANCZOS)
 
         # 2. Génération Inpainting
-        generated_pil = inpainting_service.inpaint(
-            prompt=prompt,
-            image=init_image,
-            mask_image=mask_image,
-            ip_adapter_image=ip_adapter_image,
-            negative_prompt="low quality, blurry, bad anatomy"
-        )
+        
+        # MODE GOMME (REMOVE) : Pas d'image produit
+        if ip_adapter_image is None:
+            print("🧹 Mode: Remove Object (Cleaning)")
+            generated_pil = inpainting_service.inpaint(
+                prompt="clean background, empty room, wall, floor, interior design, high quality",
+                image=init_image,
+                mask_image=mask_image,
+                ip_adapter_image=None,
+                negative_prompt="object, furniture, artifacts, distorted, low quality",
+                guidance_scale=7.5 # Standard pour le nettoyage
+            )
+            
+        # MODE AJOUT (ADD) : Avec image produit
+        else:
+            print("furniture Mode: Add Product (Staging)")
+            # Si staging produit, on force un prompt descriptif basé sur le nom du produit (si dispo) ou le prompt utilisateur
+            final_prompt = prompt
+            try:
+                # Détection de couleur
+                from ..services.image_utils import get_dominant_color
+                detected_color = get_dominant_color(ip_adapter_image)
+                
+                # Détection de forme (Ratio)
+                w, h = ip_adapter_image.size
+                ratio = w / h
+                shape_keywords = ""
+                # Seuil abaissé à 1.2 pour mieux détecter les canapés larges
+                if ratio > 1.2:
+                    shape_keywords = "wide, sectional sofa, L-shaped, corner sofa"
+                
+                # Construction du prompt intelligent
+                color_str = f"{detected_color} " if detected_color else ""
+                
+                # On combine tout : Couleur + Forme + Nom du produit (prompt) + Qualité
+                final_prompt = f"photo of {color_str}{prompt}, {shape_keywords}, high quality, realistic, 8k, interior design, {color_str} texture, product view"
+                
+                print(f"🧠 Smart Prompt: {final_prompt}")
+            except Exception as e:
+                print(f"⚠️ Error constructing smart prompt: {e}")
+                # Fallback safe
+                final_prompt = f"high quality photo of {prompt}, product view, photorealistic"
+
+            # Construction du Negative Prompt Dynamique
+            base_negative = "low quality, blurry, bad anatomy, distorted, text, watermark, bad perspective, wrong colors, ugly"
+            dynamic_negative = base_negative
+            
+            if "black" in final_prompt.lower():
+                dynamic_negative += ", white, beige, grey, light color, bright"
+            elif "white" in final_prompt.lower():
+                dynamic_negative += ", black, dark, grey"
+
+            generated_pil = inpainting_service.inpaint(
+                prompt=final_prompt,
+                image=init_image,
+                mask_image=mask_image,
+                ip_adapter_image=ip_adapter_image,
+                negative_prompt=dynamic_negative,
+                guidance_scale=12.0 # Augmenté pour forcer le respect du prompt (couleur)
+            )
+
+        # Nettoyage mémoire GPU
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # 3. Sauvegarde
         output_filename = f"inpainted_{uuid.uuid4()}.png"

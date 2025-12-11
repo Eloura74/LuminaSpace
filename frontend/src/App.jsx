@@ -8,6 +8,7 @@ import CompareSlider from './components/CompareSlider';
 import ShopSidebar from './components/ShopSidebar';
 import GalleryModal from './components/GalleryModal';
 import MaskCanvas from './components/MaskCanvas';
+import AddProductModal from './components/AddProductModal';
 
 // Data & Services
 import { PRODUCT_CATALOG } from './data/constants';
@@ -29,9 +30,32 @@ export default function App() {
 
   // State pour la galerie
   const [showGallery, setShowGallery] = useState(false);
+  
+  // State pour les produits
+  const [products, setProducts] = useState([]);
+  const [showAddProduct, setShowAddProduct] = useState(false);
 
   // State pour Inpainting
   const [isMasking, setIsMasking] = useState(false);
+  const [inpaintMode, setInpaintMode] = useState('add'); // 'add' or 'remove'
+
+  // Charger les produits au démarrage
+  React.useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    const data = await api.getProducts();
+    if (data) {
+        setProducts(data);
+        setShopSuggestions(data); // Initialement, on montre tout
+    }
+  };
+
+  const handleAddProduct = async (formData) => {
+    await api.addProduct(formData);
+    await loadProducts(); // Recharger la liste
+  };
 
   const handleFileSelect = (file) => {
     setSelectedFile(file);
@@ -76,6 +100,7 @@ export default function App() {
     }
   };
 
+
   const handleMaskGenerated = async (maskBlob) => {
     setIsMasking(false);
     setIsGenerating(true);
@@ -83,10 +108,7 @@ export default function App() {
     try {
         const formData = new FormData();
         
-        // Convertir l'image générée (URL) en Blob pour l'envoyer au backend
-        // Si pas d'image générée, on utilise l'originale (selectedFile)
         let imageToSend = selectedFile;
-        
         if (generatedImage && generatedImage.startsWith('http')) {
             const response = await fetch(generatedImage);
             const blob = await response.blob();
@@ -95,20 +117,31 @@ export default function App() {
 
         formData.append('image', imageToSend); 
         formData.append('mask', maskBlob, 'mask.png');
-        formData.append('prompt', prompt || "replace object");
-
-        // Si un produit est sélectionné pour le staging, on l'envoie
-        // Si un produit est sélectionné pour le staging, on envoie son URL
-        // Le backend se chargera de télécharger l'image (évite les problèmes CORS)
-        if (selectedProductToStage) {
-            formData.append('product_image_url', selectedProductToStage.image);
-            console.log("Envoi de l'URL du produit pour staging:", selectedProductToStage.image);
+        
+        // LOGIQUE SÉPARÉE SELON LE MODE
+        if (inpaintMode === 'remove') {
+            // Mode GOMME : On veut supprimer l'objet
+            formData.append('prompt', "clean background, empty room, wall, floor, interior design");
+            // On n'envoie PAS de produit
+            console.log("Mode Gomme activé");
+        } else {
+            // Mode AJOUT : On veut ajouter un produit
+            formData.append('prompt', prompt || "high quality interior");
+            
+            if (selectedProductToStage) {
+                formData.append('product_image_url', selectedProductToStage.image);
+                formData.set('prompt', selectedProductToStage.name + ", " + selectedProductToStage.category);
+                console.log("Mode Ajout : Produit envoyé", selectedProductToStage.name);
+            } else {
+                // Si pas de produit sélectionné mais mode ajout, on demande à l'user de sélectionner
+                alert("Attention : Aucun produit sélectionné pour l'ajout !");
+            }
         }
 
         const data = await api.inpaintImage(formData);
         if (data && data.generated_image) {
             setGeneratedImage(data.generated_image);
-            setSelectedProductToStage(null); // Reset après usage
+            if (inpaintMode === 'add') setSelectedProductToStage(null);
         }
     } catch (error) {
         console.error("Erreur Inpainting:", error);
@@ -133,9 +166,16 @@ export default function App() {
   const handleObjectClick = (obj) => {
     setActiveObjectLabel(obj.label);
     const category = mapLabelToCategory(obj.label);
-    // Filtrer les produits par catégorie détectée
-    const suggestions = PRODUCT_CATALOG[category] || PRODUCT_CATALOG.default;
-    setShopSuggestions(suggestions);
+    
+    // Filtrer les produits dynamiques par catégorie
+    const suggestions = products.filter(p => p.category === category);
+    
+    // Fallback si rien trouvé : montrer tout ou des suggestions par défaut
+    if (suggestions.length > 0) {
+        setShopSuggestions(suggestions);
+    } else {
+        setShopSuggestions(products); // Ou un message "Pas de produits pour cette catégorie"
+    }
   };
 
   return (
@@ -173,13 +213,28 @@ export default function App() {
             onGenerate={handleGenerate}
           />
 
-          <button 
-            onClick={() => setIsMasking(true)}
-            disabled={!selectedFile}
-            className="w-full py-4 rounded-xl border border-[#FFD700]/30 bg-[#FFD700]/5 text-[#FFD700] font-bold hover:bg-[#FFD700] hover:text-black transition-all shadow-[0_0_15px_rgba(255,215,0,0.1)] hover:shadow-[0_0_25px_rgba(255,215,0,0.3)] flex items-center justify-center gap-2 tracking-wide"
-          >
-            <Brush size={18} /> Mode Retouche (Inpainting)
-          </button>
+          <div className="flex gap-2">
+            <button 
+                onClick={() => {
+                    setInpaintMode('remove');
+                    setIsMasking(true);
+                }}
+                disabled={!selectedFile}
+                className="flex-1 py-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 font-bold hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2"
+            >
+                <Brush size={18} /> Gomme
+            </button>
+            <button 
+                onClick={() => {
+                    setInpaintMode('add');
+                    setIsMasking(true);
+                }}
+                disabled={!selectedFile}
+                className="flex-1 py-4 rounded-xl border border-[#FFD700]/30 bg-[#FFD700]/5 text-[#FFD700] font-bold hover:bg-[#FFD700] hover:text-black transition-all flex items-center justify-center gap-2"
+            >
+                <Brush size={18} /> Ajouter
+            </button>
+          </div>
 
           {/* Stats / Viral Hook */}
           <div className="bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-white/5 rounded-3xl p-8 text-center relative overflow-hidden group">
@@ -228,13 +283,21 @@ export default function App() {
              activeObjectLabel={activeObjectLabel}
              onStageProduct={(product) => {
                 setSelectedProductToStage(product);
-                setIsMasking(true); // Ouvre directement le mode retouche
+                setInpaintMode('add'); // Force le mode Ajout
+                setIsMasking(true); 
                 alert(`Produit sélectionné : ${product.name}. Dessinez la zone où le placer.`);
              }}
+             onOpenAddProduct={() => setShowAddProduct(true)}
            />
         </div>
 
       </main>
+      
+      <AddProductModal 
+        isOpen={showAddProduct}
+        onClose={() => setShowAddProduct(false)}
+        onAddProduct={handleAddProduct}
+      />
       
       {/* Background Gradients */}
       <div className="fixed inset-0 pointer-events-none z-[-1]">

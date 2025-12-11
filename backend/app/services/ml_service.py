@@ -124,7 +124,7 @@ class InpaintingService:
         try:
             # On charge l'IP-Adapter standard pour SD1.5
             self.pipe.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
-            self.pipe.set_ip_adapter_scale(0.7) # Force de l'adaptation (0.0 à 1.0)
+            self.pipe.set_ip_adapter_scale(0.9) # Augmenté à 0.9 pour une meilleure fidélité produit
             
             # FIX: S'assurer que l'image_encoder est sur le bon device/dtype
             if self.device == "cuda":
@@ -142,12 +142,20 @@ class InpaintingService:
         if ip_adapter_image:
             try:
                 self.load_ip_adapter()
+                self.pipe.set_ip_adapter_scale(0.9) # Activer
                 # IP-Adapter attend 'ip_adapter_image' dans l'appel
                 kwargs = {"ip_adapter_image": ip_adapter_image}
             except Exception as e:
                 print(f"⚠️ Could not use IP-Adapter: {e}")
                 kwargs = {}
         else:
+            # Désactiver IP-Adapter pour le mode Gomme/Nettoyage
+            # Si l'adapter a été chargé précédemment, on le met à 0
+            try:
+                if hasattr(self.pipe, "set_ip_adapter_scale"):
+                    self.pipe.set_ip_adapter_scale(0.0)
+            except Exception as e:
+                print(f"⚠️ Could not disable IP-Adapter: {e}")
             kwargs = {}
 
         output = self.pipe(

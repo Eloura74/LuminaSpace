@@ -27,5 +27,23 @@ export const api = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
+  },
+
+  // --- Products ---
+  getProducts: async () => {
+    const response = await axios.get(`${API_URL}/products`);
+    return response.data;
+  },
+
+  addProduct: async (formData) => {
+    const response = await axios.post(`${API_URL}/products`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteProduct: async (id) => {
+    const response = await axios.delete(`${API_URL}/products/${id}`);
+    return response.data;
   }
 };

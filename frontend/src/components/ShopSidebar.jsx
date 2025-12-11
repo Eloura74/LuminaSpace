@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShoppingCart, Tag, Check, ExternalLink, MousePointerClick } from 'lucide-react';
 
-const ShopSidebar = ({ shopSuggestions, activeObjectLabel, onStageProduct }) => {
+const ShopSidebar = ({ shopSuggestions, activeObjectLabel, onStageProduct, onOpenAddProduct }) => {
   const handleImageError = (e) => {
     e.target.src = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=300&q=80"; // Fallback image
   };
@@ -13,9 +13,18 @@ const ShopSidebar = ({ shopSuggestions, activeObjectLabel, onStageProduct }) => 
            <ShoppingCart size={18} className="text-[#FFD700]"/>
            Shop the Look
          </h3>
-         <span className="text-xs bg-[#FFD700]/10 text-[#FFD700] px-2 py-1 rounded border border-[#FFD700]/20">
-           {shopSuggestions.length} Items
-         </span>
+         <div className="flex items-center gap-2">
+            <span className="text-xs bg-[#FFD700]/10 text-[#FFD700] px-2 py-1 rounded border border-[#FFD700]/20">
+            {shopSuggestions.length} Items
+            </span>
+            <button 
+                onClick={onOpenAddProduct}
+                className="w-6 h-6 rounded bg-[#FFD700]/20 hover:bg-[#FFD700] text-[#FFD700] hover:text-black flex items-center justify-center transition border border-[#FFD700]/30"
+                title="Ajouter un produit"
+            >
+                <span className="text-lg font-bold leading-none mb-0.5">+</span>
+            </button>
+         </div>
       </div>
 
       {activeObjectLabel && (
