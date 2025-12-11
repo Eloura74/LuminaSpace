@@ -39,14 +39,28 @@ class MLService:
             # Optimisation Mémoire
             if self.device == "cuda":
                 self.pipe.enable_model_cpu_offload() # Très efficace pour économiser la VRAM
-                self.pipe.enable_xformers_memory_efficient_attention() # Si xformers est installé
+                try:
+                    self.pipe.enable_xformers_memory_efficient_attention()
+                    print("✅ xformers enabled for memory efficient attention")
+                except Exception as e:
+                    print(f"⚠️ xformers not available: {e}")
             
             self.pipe.to(self.device)
+            self.log_gpu_info()
             print("✅ Model loaded successfully!")
             return self.pipe
         except Exception as e:
             print(f"❌ Error loading model: {e}")
             return None
+
+    def log_gpu_info(self):
+        """Affiche les informations sur le GPU."""
+        if torch.cuda.is_available():
+            print(f"🎮 GPU: {torch.cuda.get_device_name(0)}")
+            print(f"💾 VRAM Total: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+            print(f"💾 VRAM Allocated: {torch.cuda.memory_allocated(0) / 1024**3:.2f} GB")
+        else:
+            print("💻 Running on CPU")
 
     def generate(self, prompt, image, negative_prompt="", steps=20, guidance_scale=7.5):
         """Génère une image à partir d'un prompt et d'une image de contrôle (Canny)."""

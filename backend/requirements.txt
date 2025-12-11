@@ -11,3 +11,4 @@ controlnet_aux
 numpy
 pillow
 ultralytics
+xformers

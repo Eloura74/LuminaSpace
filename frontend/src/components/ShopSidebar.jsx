@@ -24,17 +24,24 @@ const ShopSidebar = ({ shopSuggestions, activeObjectLabel }) => {
       <div className="space-y-4 flex-1 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
         {shopSuggestions.map((item) => (
           <div key={item.id} className="group flex gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition border border-transparent hover:border-amber-500/30 cursor-pointer">
-            <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center text-2xl group-hover:scale-110 transition">
-              {item.image}
+            <div className="w-16 h-16 bg-gray-800 rounded-lg overflow-hidden flex-shrink-0">
+              <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
             </div>
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-white group-hover:text-amber-500 transition">{item.name}</h4>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-medium text-white truncate group-hover:text-amber-500 transition">{item.name}</h4>
               <p className="text-xs text-gray-400 mb-2">Correspondance IA: {item.match}</p>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-white">{item.price}</span>
-                <button className="p-1.5 bg-white text-black rounded-lg opacity-0 group-hover:opacity-100 transition transform translate-x-2 group-hover:translate-x-0">
-                  <Check size={14} />
-                </button>
+                {item.link && (
+                  <a 
+                    href={item.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-white text-black text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition transform translate-x-2 group-hover:translate-x-0 flex items-center gap-1 hover:bg-amber-500 hover:text-white"
+                  >
+                    Acheter <Check size={12} />
+                  </a>
+                )}
               </div>
             </div>
           </div>
