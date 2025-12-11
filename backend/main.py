@@ -5,6 +5,11 @@ import os
 
 # Import Routers
 from app.routers import generation, detection, gallery, products, auth
+from app.database import engine
+from app import models
+
+# Create Database Tables
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Lumina Spaces API")
 

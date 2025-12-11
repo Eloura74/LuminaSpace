@@ -1,51 +1,44 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from typing import List, Optional
-import json
 import os
 import shutil
 import uuid
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from .auth import verify_admin
+from ..database import get_db
+from ..models import Product as ProductModel
 
 router = APIRouter()
 
-PRODUCTS_FILE = "data/products.json"
 PRODUCTS_DIR = "static/products"
 
-class Product(BaseModel):
+# Pydantic Model for Response
+class ProductResponse(BaseModel):
     id: str
     name: str
     price: str
     image: str
     category: str
     link: str
-    match: str = "100%"
+    match: str
 
-def load_products():
-    if not os.path.exists(PRODUCTS_FILE):
-        return []
-    try:
-        with open(PRODUCTS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
+    class Config:
+        orm_mode = True
 
-def save_products(products):
-    with open(PRODUCTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(products, f, indent=2, ensure_ascii=False)
+@router.get("/products", response_model=List[ProductResponse])
+async def get_products(db: Session = Depends(get_db)):
+    return db.query(ProductModel).all()
 
-@router.get("/products", response_model=List[Product])
-async def get_products():
-    return load_products()
-
-@router.post("/products", response_model=Product)
+@router.post("/products", response_model=ProductResponse)
 async def add_product(
     image: UploadFile = File(...),
     name: str = Form(...),
     price: str = Form(...),
     link: str = Form(...),
     category: str = Form("default"),
-    authorized: bool = Depends(verify_admin)
+    authorized: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
 ):
     # 1. Save Image
     file_extension = os.path.splitext(image.filename)[1]
@@ -64,34 +57,36 @@ async def add_product(
         print(f"❌ Error saving product image: {e}")
         raise HTTPException(status_code=500, detail="Could not save image file")
         
-    # 2. Create Product Object
-    # URL relative for frontend
+    # 2. Create Product Object (DB)
     image_url = f"http://localhost:8000/static/products/{file_name}"
     
-    new_product = {
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "price": price,
-        "image": image_url,
-        "category": category,
-        "link": link,
-        "match": "100%" # User added products are perfect matches
-    }
+    new_product = ProductModel(
+        id=str(uuid.uuid4()),
+        name=name,
+        price=price,
+        image=image_url,
+        category=category,
+        link=link,
+        match="100%"
+    )
     
-    # 3. Save to JSON
-    products = load_products()
-    products.append(new_product)
-    save_products(products)
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
     
     return new_product
 
 @router.delete("/products/{product_id}")
-async def delete_product(product_id: str, authorized: bool = Depends(verify_admin)):
-    products = load_products()
-    updated_products = [p for p in products if p["id"] != product_id]
-    
-    if len(products) == len(updated_products):
+async def delete_product(
+    product_id: str, 
+    authorized: bool = Depends(verify_admin),
+    db: Session = Depends(get_db)
+):
+    product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
+    if not product:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    save_products(updated_products)
+    db.delete(product)
+    db.commit()
+    
     return {"message": "Product deleted"}
