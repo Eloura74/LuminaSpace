@@ -8,6 +8,7 @@ import CompareSlider from './components/CompareSlider';
 import ShopSidebar from './components/ShopSidebar';
 import GalleryModal from './components/GalleryModal';
 import MaskCanvas from './components/MaskCanvas';
+import LoginModal from './components/LoginModal';
 import AddProductModal from './components/AddProductModal';
 
 // Data & Services
@@ -38,10 +39,16 @@ export default function App() {
   // State pour Inpainting
   const [isMasking, setIsMasking] = useState(false);
   const [inpaintMode, setInpaintMode] = useState('add'); // 'add' or 'remove'
+  
+  // State pour Auth
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
-  // Charger les produits au démarrage
+  // Charger les produits et vérifier le token au démarrage
   React.useEffect(() => {
     loadProducts();
+    const token = localStorage.getItem('admin_token');
+    if (token) setIsAdmin(true);
   }, []);
 
   const loadProducts = async () => {
@@ -178,6 +185,19 @@ export default function App() {
     }
   };
 
+  const handleLogin = async (username, password) => {
+    const data = await api.login(username, password);
+    if (data.access_token) {
+        localStorage.setItem('admin_token', data.access_token);
+        setIsAdmin(true);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    setIsAdmin(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-gray-200 font-sans selection:bg-amber-500/30">
       
@@ -195,7 +215,12 @@ export default function App() {
         onLoadImage={(url) => setGeneratedImage(url)}
       />
 
-      <Navbar onOpenGallery={() => setShowGallery(true)} />
+      <Navbar 
+        onOpenGallery={() => setShowGallery(true)} 
+        onOpenLogin={() => setShowLogin(true)}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+      />
 
       {/* Main Interface */}
       <main className="pt-28 pb-12 px-6 max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 animate-fade-in">
@@ -288,6 +313,7 @@ export default function App() {
                 alert(`Produit sélectionné : ${product.name}. Dessinez la zone où le placer.`);
              }}
              onOpenAddProduct={() => setShowAddProduct(true)}
+             isAdmin={isAdmin}
            />
         </div>
 
@@ -297,6 +323,12 @@ export default function App() {
         isOpen={showAddProduct}
         onClose={() => setShowAddProduct(false)}
         onAddProduct={handleAddProduct}
+      />
+
+      <LoginModal 
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        onLogin={handleLogin}
       />
       
       {/* Background Gradients */}

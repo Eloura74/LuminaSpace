@@ -1,10 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from typing import List, Optional
 import json
 import os
 import shutil
 import uuid
 from pydantic import BaseModel
+from .auth import verify_admin
 
 router = APIRouter()
 
@@ -43,7 +44,8 @@ async def add_product(
     name: str = Form(...),
     price: str = Form(...),
     link: str = Form(...),
-    category: str = Form("default")
+    category: str = Form("default"),
+    authorized: bool = Depends(verify_admin)
 ):
     # 1. Save Image
     file_extension = os.path.splitext(image.filename)[1]
@@ -84,7 +86,7 @@ async def add_product(
     return new_product
 
 @router.delete("/products/{product_id}")
-async def delete_product(product_id: str):
+async def delete_product(product_id: str, authorized: bool = Depends(verify_admin)):
     products = load_products()
     updated_products = [p for p in products if p["id"] != product_id]
     

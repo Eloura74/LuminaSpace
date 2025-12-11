@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 # Import Routers
-from app.routers import generation, detection, gallery, products
+from app.routers import generation, detection, gallery, products, auth
 
 app = FastAPI(title="Lumina Spaces API")
 
@@ -28,6 +28,7 @@ app.include_router(generation.router)
 app.include_router(detection.router)
 app.include_router(gallery.router)
 app.include_router(products.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def read_root():

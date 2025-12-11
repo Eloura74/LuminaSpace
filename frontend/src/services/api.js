@@ -29,6 +29,18 @@ export const api = {
     return response.data;
   },
 
+  // --- Auth ---
+  login: async (username, password) => {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+
+    const response = await axios.post(`${API_URL}/token`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
   // --- Products ---
   getProducts: async () => {
     const response = await axios.get(`${API_URL}/products`);
@@ -36,14 +48,23 @@ export const api = {
   },
 
   addProduct: async (formData) => {
+    const token = localStorage.getItem('admin_token');
     const response = await axios.post(`${API_URL}/products`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      },
     });
     return response.data;
   },
 
   deleteProduct: async (id) => {
-    const response = await axios.delete(`${API_URL}/products/${id}`);
+    const token = localStorage.getItem('admin_token');
+    const response = await axios.delete(`${API_URL}/products/${id}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
     return response.data;
   }
 };
