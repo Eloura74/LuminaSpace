@@ -25,6 +25,7 @@ export default function App() {
   const [detectedObjects, setDetectedObjects] = useState([]);
   const [shopSuggestions, setShopSuggestions] = useState(PRODUCT_CATALOG.default);
   const [activeObjectLabel, setActiveObjectLabel] = useState(null);
+  const [selectedProductToStage, setSelectedProductToStage] = useState(null); // Produit à insérer
 
   // State pour la galerie
   const [showGallery, setShowGallery] = useState(false);
@@ -96,9 +97,18 @@ export default function App() {
         formData.append('mask', maskBlob, 'mask.png');
         formData.append('prompt', prompt || "replace object");
 
+        // Si un produit est sélectionné pour le staging, on l'envoie
+        // Si un produit est sélectionné pour le staging, on envoie son URL
+        // Le backend se chargera de télécharger l'image (évite les problèmes CORS)
+        if (selectedProductToStage) {
+            formData.append('product_image_url', selectedProductToStage.image);
+            console.log("Envoi de l'URL du produit pour staging:", selectedProductToStage.image);
+        }
+
         const data = await api.inpaintImage(formData);
         if (data && data.generated_image) {
             setGeneratedImage(data.generated_image);
+            setSelectedProductToStage(null); // Reset après usage
         }
     } catch (error) {
         console.error("Erreur Inpainting:", error);
@@ -108,10 +118,23 @@ export default function App() {
     }
   };
 
+  const mapLabelToCategory = (label) => {
+    const mapping = {
+      'potted plant': 'plant',
+      'dining table': 'table',
+      'sofa': 'couch',
+      'bed': 'couch', // Fallback
+      'bench': 'chair',
+      'stool': 'chair'
+    };
+    return mapping[label.toLowerCase()] || label.toLowerCase();
+  };
+
   const handleObjectClick = (obj) => {
     setActiveObjectLabel(obj.label);
+    const category = mapLabelToCategory(obj.label);
     // Filtrer les produits par catégorie détectée
-    const suggestions = PRODUCT_CATALOG[obj.label] || PRODUCT_CATALOG.default;
+    const suggestions = PRODUCT_CATALOG[category] || PRODUCT_CATALOG.default;
     setShopSuggestions(suggestions);
   };
 
@@ -203,6 +226,11 @@ export default function App() {
            <ShopSidebar 
              shopSuggestions={shopSuggestions}
              activeObjectLabel={activeObjectLabel}
+             onStageProduct={(product) => {
+                setSelectedProductToStage(product);
+                setIsMasking(true); // Ouvre directement le mode retouche
+                alert(`Produit sélectionné : ${product.name}. Dessinez la zone où le placer.`);
+             }}
            />
         </div>
 

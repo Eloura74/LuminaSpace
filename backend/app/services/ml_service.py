@@ -118,17 +118,46 @@ class InpaintingService:
             print(f"❌ Error loading inpainting model: {e}")
             return None
 
-    def inpaint(self, prompt, image, mask_image, negative_prompt="", steps=20, guidance_scale=7.5):
+    def load_ip_adapter(self):
+        """Charge IP-Adapter pour le Virtual Staging."""
+        print("🔌 Loading IP-Adapter...")
+        try:
+            # On charge l'IP-Adapter standard pour SD1.5
+            self.pipe.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.bin")
+            self.pipe.set_ip_adapter_scale(0.7) # Force de l'adaptation (0.0 à 1.0)
+            
+            # FIX: S'assurer que l'image_encoder est sur le bon device/dtype
+            if self.device == "cuda":
+                self.pipe.image_encoder.to(self.device, dtype=torch.float16)
+            
+            print("✅ IP-Adapter loaded!")
+        except Exception as e:
+            print(f"❌ Error loading IP-Adapter: {e}")
+
+    def inpaint(self, prompt, image, mask_image, ip_adapter_image=None, negative_prompt="", steps=20, guidance_scale=7.5):
         if self.pipe is None:
             self.load_model()
         
+        # Si une image produit est fournie, on active IP-Adapter
+        if ip_adapter_image:
+            try:
+                self.load_ip_adapter()
+                # IP-Adapter attend 'ip_adapter_image' dans l'appel
+                kwargs = {"ip_adapter_image": ip_adapter_image}
+            except Exception as e:
+                print(f"⚠️ Could not use IP-Adapter: {e}")
+                kwargs = {}
+        else:
+            kwargs = {}
+
         output = self.pipe(
             prompt=prompt,
             image=image,
             mask_image=mask_image,
             negative_prompt=negative_prompt,
             num_inference_steps=steps,
-            guidance_scale=guidance_scale
+            guidance_scale=guidance_scale,
+            **kwargs
         )
         return output.images[0]
 

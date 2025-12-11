@@ -83,32 +83,85 @@ async def generate_image(
 async def inpaint_image(
     image: UploadFile = File(...),
     mask: UploadFile = File(...),
+    product_image: UploadFile = File(None), 
+    product_image_url: str = Form(None), # Nouvelle option : URL directe
     prompt: str = Form(...)
 ):
     """
     Endpoint pour l'Inpainting (Remplacement d'objet).
+    Supporte maintenant le Virtual Staging via IP-Adapter si product_image ou product_image_url est fourni.
     """
     try:
         from ..services.ml_service import inpainting_service
         from PIL import Image
         import io
+        import urllib.request
 
         # 1. Lire Image et Masque
+        print("📥 Reading inputs...")
         image_bytes = await image.read()
         mask_bytes = await mask.read()
+        print(f"✅ Image read: {len(image_bytes)} bytes")
+        print(f"✅ Mask read: {len(mask_bytes)} bytes")
         
-        init_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        mask_image = Image.open(io.BytesIO(mask_bytes)).convert("RGB") # Le masque doit être noir et blanc
+        try:
+            init_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            print("✅ Init image opened")
+        except Exception as e:
+            print(f"❌ Error opening init image: {e}")
+            raise e
+
+        try:
+            mask_image = Image.open(io.BytesIO(mask_bytes)).convert("RGB")
+            print("✅ Mask image opened")
+        except Exception as e:
+            print(f"❌ Error opening mask image: {e}")
+            raise e
 
         # Redimensionner pour éviter OOM (max 1024px)
         init_image.thumbnail((1024, 1024), Image.LANCZOS)
         mask_image.thumbnail((1024, 1024), Image.LANCZOS)
+
+        # 1b. Lire l'image produit (Fichier OU URL)
+        ip_adapter_image = None
+        
+        # Priorité 1: Fichier uploadé (si valide)
+        if product_image:
+            print("📥 Reading product image from file...")
+            product_bytes = await product_image.read()
+            if len(product_bytes) > 100: # Simple check pour éviter les fichiers corrompus/vides
+                try:
+                    ip_adapter_image = Image.open(io.BytesIO(product_bytes)).convert("RGB")
+                    print("✅ Product image opened from file")
+                except Exception as e:
+                    print(f"❌ Error opening product image file: {e}")
+
+        # Priorité 2: URL (si pas d'image valide encore)
+        if ip_adapter_image is None and product_image_url:
+            print(f"📥 Downloading product image from URL: {product_image_url}")
+            try:
+                # Téléchargement via urllib avec User-Agent pour éviter 403/404 sur certains sites
+                req = urllib.request.Request(
+                    product_image_url, 
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+                )
+                with urllib.request.urlopen(req) as response:
+                    url_bytes = response.read()
+                    ip_adapter_image = Image.open(io.BytesIO(url_bytes)).convert("RGB")
+                    print("✅ Product image downloaded and opened")
+            except Exception as e:
+                print(f"❌ Error downloading product image: {e}")
+
+        # Redimensionnement image produit
+        if ip_adapter_image:
+            ip_adapter_image.thumbnail((512, 512), Image.LANCZOS)
 
         # 2. Génération Inpainting
         generated_pil = inpainting_service.inpaint(
             prompt=prompt,
             image=init_image,
             mask_image=mask_image,
+            ip_adapter_image=ip_adapter_image,
             negative_prompt="low quality, blurry, bad anatomy"
         )
 

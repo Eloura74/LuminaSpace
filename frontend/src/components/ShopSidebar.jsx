@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShoppingCart, Tag, Check, ExternalLink } from 'lucide-react';
+import { ShoppingCart, Tag, Check, ExternalLink, MousePointerClick } from 'lucide-react';
 
-const ShopSidebar = ({ shopSuggestions, activeObjectLabel }) => {
+const ShopSidebar = ({ shopSuggestions, activeObjectLabel, onStageProduct }) => {
   const handleImageError = (e) => {
     e.target.src = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=300&q=80"; // Fallback image
   };
@@ -44,16 +44,27 @@ const ShopSidebar = ({ shopSuggestions, activeObjectLabel }) => {
               
               <div className="flex justify-between items-end">
                 <span className="text-lg font-bold text-white">{item.price}</span>
-                {item.link && (
-                  <a 
-                    href={item.link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-8 h-8 rounded-full bg-[#FFD700] text-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 hover:bg-white"
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStageProduct(item);
+                    }}
+                    className="px-3 py-1.5 bg-[#FFD700]/10 text-[#FFD700] text-xs font-bold rounded-lg border border-[#FFD700]/30 hover:bg-[#FFD700] hover:text-black transition flex items-center gap-1"
                   >
-                    <ExternalLink size={14} />
-                  </a>
-                )}
+                    <MousePointerClick size={12} /> Placer
+                  </button>
+                  {item.link && (
+                    <a 
+                      href={item.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white hover:text-black transition"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>

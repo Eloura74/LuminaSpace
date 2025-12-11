@@ -39,10 +39,28 @@ const MaskCanvas = ({ imageSrc, onMaskGenerated, onClose }) => {
     }
   }, [brushSize]);
 
-  const startDrawing = ({ nativeEvent }) => {
-    const { offsetX, offsetY } = nativeEvent;
+  const getCoordinates = (event) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // Support touch and mouse
+    const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+    const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const startDrawing = (event) => {
+    const { x, y } = getCoordinates(event);
     contextRef.current.beginPath();
-    contextRef.current.moveTo(offsetX, offsetY);
+    contextRef.current.moveTo(x, y);
     setIsDrawing(true);
   };
 
@@ -51,10 +69,10 @@ const MaskCanvas = ({ imageSrc, onMaskGenerated, onClose }) => {
     setIsDrawing(false);
   };
 
-  const draw = ({ nativeEvent }) => {
+  const draw = (event) => {
     if (!isDrawing) return;
-    const { offsetX, offsetY } = nativeEvent;
-    contextRef.current.lineTo(offsetX, offsetY);
+    const { x, y } = getCoordinates(event);
+    contextRef.current.lineTo(x, y);
     contextRef.current.stroke();
   };
 

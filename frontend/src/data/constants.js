@@ -131,10 +131,18 @@ export const PRODUCT_CATALOG = {
   ],
   default: [
     { 
+      id: 1000, 
+      name: "Canapé Velours Côtelé", 
+      price: "899€", 
+      image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=300&auto=format&fit=crop", 
+      match: "98%",
+      link: "https://amzn.to/48LDJOP"
+    },
+    { 
       id: 999, 
       name: "Lampe Arc Fusion", 
       price: "249€", 
-      image: "https://images.unsplash.com/photo-1513506003011-3b03c8a35918?auto=format&fit=crop&w=300&q=80", 
+      image: "https://images.unsplash.com/photo-1513506003011-3b03c8a35918?q=80&w=300&auto=format&fit=crop", 
       match: "95%",
       link: "https://www.luminaire.fr/"
     },
@@ -142,7 +150,7 @@ export const PRODUCT_CATALOG = {
       id: 998, 
       name: "Tapis Texturé", 
       price: "129€", 
-      image: "https://images.unsplash.com/photo-1575414003591-ece8d0416c7a?auto=format&fit=crop&w=300&q=80", 
+      image: "https://images.unsplash.com/photo-1534889156217-d643df14f14a?q=80&w=300&auto=format&fit=crop", 
       match: "88%",
       link: "https://www.saint-maclou.com/tapis"
     }
