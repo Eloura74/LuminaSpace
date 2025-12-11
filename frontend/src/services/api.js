@@ -20,5 +20,12 @@ export const api = {
   fetchGallery: async () => {
     const response = await axios.get(`${API_URL}/gallery`);
     return response.data;
+  },
+
+  inpaintImage: async (formData) => {
+    const response = await axios.post(`${API_URL}/inpaint`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
   }
 };

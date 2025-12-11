@@ -78,3 +78,49 @@ async def generate_image(
     except Exception as e:
         print(f"Erreur génération: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@router.post("/inpaint")
+async def inpaint_image(
+    image: UploadFile = File(...),
+    mask: UploadFile = File(...),
+    prompt: str = Form(...)
+):
+    """
+    Endpoint pour l'Inpainting (Remplacement d'objet).
+    """
+    try:
+        from ..services.ml_service import inpainting_service
+        from PIL import Image
+        import io
+
+        # 1. Lire Image et Masque
+        image_bytes = await image.read()
+        mask_bytes = await mask.read()
+        
+        init_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        mask_image = Image.open(io.BytesIO(mask_bytes)).convert("RGB") # Le masque doit être noir et blanc
+
+        # 2. Génération Inpainting
+        generated_pil = inpainting_service.inpaint(
+            prompt=prompt,
+            image=init_image,
+            mask_image=mask_image,
+            negative_prompt="low quality, blurry, bad anatomy"
+        )
+
+        # 3. Sauvegarde
+        output_filename = f"inpainted_{uuid.uuid4()}.png"
+        output_path = os.path.join(GALLERY_DIR, output_filename)
+        generated_pil.save(output_path)
+        
+        image_url = f"http://localhost:8000/static/gallery/{output_filename}"
+
+        return {
+            "message": "Inpainting successful", 
+            "generated_image": image_url,
+            "id": output_filename
+        }
+
+    except Exception as e:
+        print(f"Erreur inpainting: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)

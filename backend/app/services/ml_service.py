@@ -80,3 +80,56 @@ class MLService:
 
 # Singleton instance
 ml_service = MLService()
+
+# --- Inpainting Pipeline ---
+from diffusers import StableDiffusionInpaintPipeline
+
+class InpaintingService:
+    def __init__(self):
+        self.pipe = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"🎨 Inpainting Service initialized on {self.device}")
+
+    def load_model(self):
+        if self.pipe is not None:
+            return self.pipe
+        
+        print("⏳ Loading Inpainting Model...")
+        try:
+            self.pipe = StableDiffusionInpaintPipeline.from_pretrained(
+                "runwayml/stable-diffusion-inpainting",
+                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                safety_checker=None
+            )
+            
+            # Optimisations
+            self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
+            if self.device == "cuda":
+                self.pipe.enable_model_cpu_offload()
+                try:
+                    self.pipe.enable_xformers_memory_efficient_attention()
+                except:
+                    pass
+            
+            self.pipe.to(self.device)
+            print("✅ Inpainting Model loaded!")
+            return self.pipe
+        except Exception as e:
+            print(f"❌ Error loading inpainting model: {e}")
+            return None
+
+    def inpaint(self, prompt, image, mask_image, negative_prompt="", steps=20, guidance_scale=7.5):
+        if self.pipe is None:
+            self.load_model()
+        
+        output = self.pipe(
+            prompt=prompt,
+            image=image,
+            mask_image=mask_image,
+            negative_prompt=negative_prompt,
+            num_inference_steps=steps,
+            guidance_scale=guidance_scale
+        )
+        return output.images[0]
+
+inpainting_service = InpaintingService()

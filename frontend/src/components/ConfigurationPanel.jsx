@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Scan, Upload, Layers, Wand2 } from 'lucide-react';
+import { Scan, Upload, Layers, Wand2, Loader2 } from 'lucide-react';
 import { STYLES } from '../data/constants';
 
 const ConfigurationPanel = ({ 
@@ -85,7 +85,7 @@ const ConfigurationPanel = ({
         disabled={isGenerating || !selectedFile}
         className="mt-8 w-full btn-primary"
       >
-        {isGenerating ? <Layers className="animate-spin" size={20}/> : <Wand2 size={20} />}
+        {isGenerating ? <Loader2 className="animate-spin" size={20}/> : <Wand2 size={20} />}
         {isGenerating ? 'Génération...' : 'Transformer l\'espace'}
       </button>
     </div>
