@@ -100,6 +100,10 @@ async def inpaint_image(
         init_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         mask_image = Image.open(io.BytesIO(mask_bytes)).convert("RGB") # Le masque doit être noir et blanc
 
+        # Redimensionner pour éviter OOM (max 1024px)
+        init_image.thumbnail((1024, 1024), Image.LANCZOS)
+        mask_image.thumbnail((1024, 1024), Image.LANCZOS)
+
         # 2. Génération Inpainting
         generated_pil = inpainting_service.inpaint(
             prompt=prompt,

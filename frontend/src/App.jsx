@@ -79,14 +79,23 @@ export default function App() {
     setIsMasking(false);
     setIsGenerating(true);
 
-    const formData = new FormData();
-    // Pour l'inpainting, on utilise l'image générée comme base si elle existe, sinon l'originale
-    // Ici pour simplifier on reprend le fichier original, mais idéalement on devrait convertir generatedImage en blob
-    formData.append('image', selectedFile); 
-    formData.append('mask', maskBlob, 'mask.png');
-    formData.append('prompt', prompt || "replace object");
-
     try {
+        const formData = new FormData();
+        
+        // Convertir l'image générée (URL) en Blob pour l'envoyer au backend
+        // Si pas d'image générée, on utilise l'originale (selectedFile)
+        let imageToSend = selectedFile;
+        
+        if (generatedImage && generatedImage.startsWith('http')) {
+            const response = await fetch(generatedImage);
+            const blob = await response.blob();
+            imageToSend = new File([blob], "image.png", { type: "image/png" });
+        }
+
+        formData.append('image', imageToSend); 
+        formData.append('mask', maskBlob, 'mask.png');
+        formData.append('prompt', prompt || "replace object");
+
         const data = await api.inpaintImage(formData);
         if (data && data.generated_image) {
             setGeneratedImage(data.generated_image);
@@ -111,7 +120,7 @@ export default function App() {
       
       {isMasking && (
         <MaskCanvas 
-            imageSrc={previewUrl} // On dessine sur l'image originale pour l'instant
+            imageSrc={generatedImage} // On dessine sur l'image GÉNÉRÉE
             onMaskGenerated={handleMaskGenerated}
             onClose={() => setIsMasking(false)}
         />

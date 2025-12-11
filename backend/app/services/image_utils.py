@@ -11,6 +11,7 @@ def process_canny(image_path):
         return None
     
     # Convertir en niveaux de gris
+    image = resize_image(image, max_size=1024) # Redimensionner pour éviter OOM
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
     # Appliquer Canny
